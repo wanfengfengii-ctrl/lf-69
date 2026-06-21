@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import FingeringForm from '@/components/FingeringForm.vue';
 import TimelineEditor from '@/components/TimelineEditor.vue';
 import StatsPanel from '@/components/StatsPanel.vue';
 import FingeringList from '@/components/FingeringList.vue';
 import PracticePanel from '@/components/PracticePanel.vue';
 import VersionManager from '@/components/VersionManager.vue';
+import PracticeTrackerPanel from '@/components/PracticeTrackerPanel.vue';
 import { useFingeringStore } from '@/composables/useFingeringStore';
-import { Music2, Sparkles } from 'lucide-vue-next';
+import { Music2, Sparkles, Clock3, Sliders } from 'lucide-vue-next';
 
 const { loadSampleData, fingerings } = useFingeringStore();
+
+type TabKey = 'editor' | 'tracker';
+const activeTab = ref<TabKey>('editor');
 
 onMounted(() => {
   if (fingerings.value.length === 0) {
@@ -17,8 +21,7 @@ onMounted(() => {
   }
 });
 
-function handleFingeringAdded() {
-}
+function handleFingeringAdded() {}
 </script>
 
 <template>
@@ -36,6 +39,32 @@ function handleFingeringAdded() {
         </div>
 
         <div class="flex items-center gap-2">
+          <div class="flex bg-stone-100 rounded-lg p-1 mr-2">
+            <button
+              @click="activeTab = 'editor'"
+              class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+              :class="
+                activeTab === 'editor'
+                  ? 'bg-white text-amber-700 shadow-sm'
+                  : 'text-stone-600 hover:text-stone-800'
+              "
+            >
+              <Sliders class="w-4 h-4" />
+              谱面编辑
+            </button>
+            <button
+              @click="activeTab = 'tracker'"
+              class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+              :class="
+                activeTab === 'tracker'
+                  ? 'bg-white text-emerald-700 shadow-sm'
+                  : 'text-stone-600 hover:text-stone-800'
+              "
+            >
+              <Clock3 class="w-4 h-4" />
+              练习评估
+            </button>
+          </div>
           <VersionManager />
           <button
             @click="loadSampleData"
@@ -49,21 +78,35 @@ function handleFingeringAdded() {
     </header>
 
     <main class="max-w-7xl mx-auto px-6 py-6">
-      <div class="grid grid-cols-12 gap-6">
-        <aside class="col-span-12 lg:col-span-3 space-y-6">
-          <FingeringForm @added="handleFingeringAdded" />
-          <PracticePanel />
-        </aside>
+      <template v-if="activeTab === 'editor'">
+        <div class="grid grid-cols-12 gap-6">
+          <aside class="col-span-12 lg:col-span-3 space-y-6">
+            <FingeringForm @added="handleFingeringAdded" />
+            <PracticePanel />
+          </aside>
 
-        <section class="col-span-12 lg:col-span-6 space-y-6">
-          <TimelineEditor />
-          <FingeringList />
-        </section>
+          <section class="col-span-12 lg:col-span-6 space-y-6">
+            <TimelineEditor />
+            <FingeringList />
+          </section>
 
-        <aside class="col-span-12 lg:col-span-3">
-          <StatsPanel />
-        </aside>
-      </div>
+          <aside class="col-span-12 lg:col-span-3">
+            <StatsPanel />
+          </aside>
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'tracker'">
+        <div class="grid grid-cols-12 gap-6">
+          <aside class="col-span-12 lg:col-span-4 space-y-6">
+            <PracticeTrackerPanel />
+          </aside>
+          <section class="col-span-12 lg:col-span-8 space-y-6">
+            <PracticePanel />
+            <StatsPanel />
+          </section>
+        </div>
+      </template>
     </main>
 
     <footer class="mt-12 py-6 border-t border-stone-200 bg-white/50">

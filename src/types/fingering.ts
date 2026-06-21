@@ -237,3 +237,54 @@ export const DEFAULT_PRACTICE_CONFIG: PracticeConfig = {
   timeSignature: { beats: 4, beatType: 4 },
   timeAxisMode: 'seconds',
 };
+
+export type SelfRating = 'poor' | 'fair' | 'good' | 'excellent';
+
+export const SELF_RATINGS: { value: SelfRating; label: string; color: string }[] = [
+  { value: 'poor', label: '较差', color: 'red' },
+  { value: 'fair', label: '一般', color: 'orange' },
+  { value: 'good', label: '良好', color: 'amber' },
+  { value: 'excellent', label: '优秀', color: 'emerald' },
+];
+
+export interface PracticeRecord {
+  id: string;
+  startTime: number;
+  endTime: number;
+  actualDuration: number;
+  sectionId: string | null;
+  sectionName: string;
+  targetBpm: number;
+  actualBpm: number;
+  errorCount: number;
+  stutterCount: number;
+  selfRating: SelfRating;
+  note?: string;
+  createdAt: number;
+}
+
+export interface DailyStats {
+  date: string;
+  totalDuration: number;
+  recordCount: number;
+  avgRating: number;
+}
+
+export interface SectionStats {
+  sectionId: string | null;
+  sectionName: string;
+  totalDuration: number;
+  practiceCount: number;
+  avgErrorCount: number;
+  avgStutterCount: number;
+  avgRating: number;
+  lastPracticeTime: number | null;
+  daysSinceLastPractice: number;
+  isHighErrorRate: boolean;
+  isLongUnpracticed: boolean;
+}
+
+export interface DateRange {
+  start: string | null;
+  end: string | null;
+}
