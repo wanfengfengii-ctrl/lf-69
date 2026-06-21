@@ -12,6 +12,8 @@ const CONFLICTING_LEFT_HAND: string[][] = [
   ['ni', 'zhuang'],
 ];
 
+const CONFLICTING_RIGHT_HAND: string[][] = [];
+
 export function useConflictDetector(
   fingerings: Ref<Fingering[]> | ComputedRef<Fingering[]>,
 ) {
@@ -75,7 +77,11 @@ export function useConflictDetector(
   }
 
   function hasRightHandConflict(rh1: string, rh2: string): boolean {
-    return rh1 !== rh2;
+    if (CONFLICTING_RIGHT_HAND.length === 0) return false;
+    return CONFLICTING_RIGHT_HAND.some(
+      (pair) =>
+        (pair[0] === rh1 && pair[1] === rh2) || (pair[0] === rh2 && pair[1] === rh1),
+    );
   }
 
   return {

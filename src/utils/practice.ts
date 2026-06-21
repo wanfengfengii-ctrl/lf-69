@@ -9,9 +9,10 @@ import type {
   DifficultyTag,
   RightHandTechnique,
   LeftHandTechnique,
+  Conflict,
 } from '@/types/fingering';
 import { RIGHT_HAND_TECHNIQUES, LEFT_HAND_TECHNIQUES } from '@/types/fingering';
-import { generateId } from './validation';
+import { generateId, isTimeOverlap } from './validation';
 
 export function secondsToBeats(seconds: number, bpm: number): number {
   return (seconds * bpm) / 60;
@@ -226,6 +227,57 @@ export function createVersion(
   };
 }
 
+const CONFLICTING_LEFT_HAND: string[][] = [
+  ['shang', 'xia'],
+  ['jin', 'tui'],
+  ['shang', 'fu'],
+  ['xia', 'fu'],
+  ['tao', 'ni'],
+  ['tao', 'zhuang'],
+  ['ni', 'zhuang'],
+];
+
+function detectConflicts(fingerings: Fingering[]): Conflict[] {
+  const result: Conflict[] = [];
+  const fings = [...fingerings].sort((a, b) => a.startTime - b.startTime);
+
+  for (let i = 0; i < fings.length; i++) {
+    for (let j = i + 1; j < fings.length; j++) {
+      const f1 = fings[i];
+      const f2 = fings[j];
+
+      const end1 = f1.startTime + f1.duration;
+      const end2 = f2.startTime + f2.duration;
+
+      if (!isTimeOverlap(f1.startTime, end1, f2.startTime, end2)) {
+        continue;
+      }
+
+      const lhConflict = CONFLICTING_LEFT_HAND.some(
+        (pair) =>
+          (pair[0] === f1.leftHand && pair[1] === f2.leftHand) ||
+          (pair[0] === f2.leftHand && pair[1] === f1.leftHand),
+      );
+      if (lhConflict && f1.leftHand !== 'none' && f2.leftHand !== 'none') {
+        result.push({
+          id: generateId(),
+          fingeringIds: [f1.id, f2.id],
+          type: 'left_hand',
+          description: `时间重叠的左手技法冲突: ${f1.character} 与 ${f2.character}`,
+        });
+      }
+    }
+  }
+
+  return result;
+}
+
+function conflictsEqual(c1: Conflict, c2: Conflict): boolean {
+  const ids1 = [...c1.fingeringIds].sort();
+  const ids2 = [...c2.fingeringIds].sort();
+  return ids1.join(',') === ids2.join(',') && c1.type === c2.type;
+}
+
 export function diffVersions(v1: ScoreVersion, v2: ScoreVersion): VersionDiff {
   const diff: VersionDiff = {
     addedFingerings: [],
@@ -235,6 +287,8 @@ export function diffVersions(v1: ScoreVersion, v2: ScoreVersion): VersionDiff {
     removedSections: [],
     modifiedSections: [],
     configChanged: false,
+    resolvedConflicts: [],
+    newConflicts: [],
   };
 
   const v1FingMap = new Map(v1.fingerings.map((f) => [f.id, f]));
@@ -281,6 +335,21 @@ export function diffVersions(v1: ScoreVersion, v2: ScoreVersion): VersionDiff {
     diff.configChanged = true;
     diff.oldConfig = v1.practiceConfig;
     diff.newConfig = v2.practiceConfig;
+  }
+
+  const v1Conflicts = detectConflicts(v1.fingerings);
+  const v2Conflicts = detectConflicts(v2.fingerings);
+
+  for (const c of v1Conflicts) {
+    if (!v2Conflicts.some((c2) => conflictsEqual(c, c2))) {
+      diff.resolvedConflicts.push(c);
+    }
+  }
+
+  for (const c of v2Conflicts) {
+    if (!v1Conflicts.some((c1) => conflictsEqual(c1, c))) {
+      diff.newConflicts.push(c);
+    }
   }
 
   return diff;

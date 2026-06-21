@@ -52,6 +52,7 @@ const {
   currentLoop,
   loopCount,
   setActiveSection,
+  playSection,
 } = useAudioPlayer();
 
 const newSectionName = ref('');
@@ -125,7 +126,7 @@ function handleAddSection() {
 }
 
 function handlePlaySection(section: PracticeSection) {
-  emit('playSection', section);
+  playSection(section, sortedFingerings.value);
 }
 
 function handleStopSection() {

@@ -14,6 +14,8 @@ import {
   PlusCircle,
   MinusCircle,
   Edit3,
+  AlertTriangle,
+  CheckCircle,
 } from 'lucide-vue-next';
 import type { ScoreVersion, VersionDiff } from '@/types/fingering';
 
@@ -433,6 +435,40 @@ function getVersionName(versionId: string): string {
               </div>
             </div>
 
+            <div v-if="currentDiff.resolvedConflicts.length > 0" class="space-y-2">
+              <h4 class="text-sm font-medium text-stone-700 flex items-center gap-2">
+                <CheckCircle class="w-4 h-4 text-emerald-500" />
+                已解决冲突 ({{ currentDiff.resolvedConflicts.length }})
+              </h4>
+              <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-1.5">
+                <div
+                  v-for="c in currentDiff.resolvedConflicts"
+                  :key="c.id"
+                  class="text-xs text-emerald-700 flex items-start gap-2"
+                >
+                  <CheckCircle class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{{ c.description }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="currentDiff.newConflicts.length > 0" class="space-y-2">
+              <h4 class="text-sm font-medium text-stone-700 flex items-center gap-2">
+                <AlertTriangle class="w-4 h-4 text-red-500" />
+                新增冲突 ({{ currentDiff.newConflicts.length }})
+              </h4>
+              <div class="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1.5">
+                <div
+                  v-for="c in currentDiff.newConflicts"
+                  :key="c.id"
+                  class="text-xs text-red-700 flex items-start gap-2"
+                >
+                  <AlertTriangle class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{{ c.description }}</span>
+                </div>
+              </div>
+            </div>
+
             <div
               v-if="currentDiff.addedFingerings.length === 0 &&
                 currentDiff.removedFingerings.length === 0 &&
@@ -440,7 +476,9 @@ function getVersionName(versionId: string): string {
                 currentDiff.addedSections.length === 0 &&
                 currentDiff.removedSections.length === 0 &&
                 currentDiff.modifiedSections.length === 0 &&
-                !currentDiff.configChanged"
+                !currentDiff.configChanged &&
+                currentDiff.resolvedConflicts.length === 0 &&
+                currentDiff.newConflicts.length === 0"
               class="text-center py-8 text-stone-400"
             >
               <Check class="w-12 h-12 mx-auto mb-2 text-emerald-400" />

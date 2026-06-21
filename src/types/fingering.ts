@@ -115,6 +115,8 @@ export interface VersionDiff {
   configChanged: boolean;
   oldConfig?: PracticeConfig;
   newConfig?: PracticeConfig;
+  resolvedConflicts: Conflict[];
+  newConflicts: Conflict[];
 }
 
 export interface PracticeViewData {

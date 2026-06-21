@@ -461,6 +461,8 @@ onMounted(() => {
               :has-conflict="isFingeringInConflict(fing.id)"
               :pixel-per-second="practiceConfig.timeAxisMode === 'seconds' ? pps : beatsToSeconds(1, practiceConfig.bpm) * ppb"
               :min-duration="minDur"
+              :time-axis-mode="practiceConfig.timeAxisMode"
+              :bpm="practiceConfig.bpm"
               @select="handleSelect(fing.id)"
               @duration-change="(d) => handleDurationChange(fing.id, d)"
               @start-time-change="(t) => handleStartTimeChange(fing.id, t)"

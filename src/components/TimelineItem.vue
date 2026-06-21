@@ -11,6 +11,7 @@ import {
 import { GripVertical, Trash2, Volume2, StickyNote } from 'lucide-vue-next';
 import { useFingeringStore } from '@/composables/useFingeringStore';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
+import { secondsToBeats } from '@/utils/practice';
 
 const props = defineProps<{
   fingering: Fingering;
@@ -19,6 +20,8 @@ const props = defineProps<{
   hasConflict: boolean;
   pixelPerSecond: number;
   minDuration: number;
+  timeAxisMode?: 'seconds' | 'beats';
+  bpm?: number;
 }>();
 
 const emit = defineEmits<{
@@ -56,6 +59,20 @@ const huiLabel = computed(() => {
 });
 
 const difficultyOptions = DIFFICULTY_TAGS;
+
+const startTimeLabel = computed(() => {
+  if (props.timeAxisMode === 'beats' && props.bpm) {
+    return `${secondsToBeats(props.fingering.startTime, props.bpm).toFixed(1)}拍`;
+  }
+  return `${props.fingering.startTime.toFixed(1)}s`;
+});
+
+const durationLabel = computed(() => {
+  if (props.timeAxisMode === 'beats' && props.bpm) {
+    return `${secondsToBeats(props.fingering.duration, props.bpm).toFixed(1)}拍`;
+  }
+  return `${props.fingering.duration.toFixed(1)}s`;
+});
 
 const difficultyColor = computed(() => {
   if (!props.fingering.difficulty) return '';
@@ -254,8 +271,8 @@ onUnmounted(() => {
       </div>
 
       <div class="text-xs text-stone-500 flex justify-between items-center">
-        <span>{{ fingering.startTime.toFixed(1) }}s</span>
-        <span class="font-medium">{{ fingering.duration.toFixed(1) }}s</span>
+        <span>{{ startTimeLabel }}</span>
+        <span class="font-medium">{{ durationLabel }}</span>
       </div>
     </div>
 
