@@ -27,6 +27,25 @@ export function useAudioPlayer() {
     duration.value = totalDuration.value;
     if (!isPlaying.value) {
       currentTime.value = 0;
+    } else {
+      restartPlayback();
+    }
+  }
+
+  function restartPlayback() {
+    if (!isPlaying.value) return;
+
+    guqinAudio.stopAllActive();
+
+    playbackStartTime = guqinAudio.getCurrentTime() - currentTime.value;
+    pausedTime = currentTime.value;
+
+    for (const fing of sortedFingerings.value) {
+      if (fing.startTime + fing.duration > pausedTime) {
+        const delay = Math.max(0, fing.startTime - pausedTime);
+        const freq = calculateFrequency(fing.stringIndex, fing.huiPosition);
+        guqinAudio.playNote(freq, delay, fing.duration, 'triangle');
+      }
     }
   }
 
@@ -60,6 +79,8 @@ export function useAudioPlayer() {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
     }
+
+    guqinAudio.stopAllActive();
   }
 
   function stop() {
@@ -77,15 +98,26 @@ export function useAudioPlayer() {
 
   function seek(time: number) {
     const wasPlaying = isPlaying.value;
-    if (wasPlaying) {
-      pause();
-    }
+
+    guqinAudio.stopAllActive();
 
     pausedTime = Math.max(0, Math.min(time, totalDuration.value));
     currentTime.value = pausedTime;
 
     if (wasPlaying) {
-      play();
+      playbackStartTime = guqinAudio.getCurrentTime() - pausedTime;
+
+      for (const fing of sortedFingerings.value) {
+        if (fing.startTime + fing.duration > pausedTime) {
+          const delay = Math.max(0, fing.startTime - pausedTime);
+          const freq = calculateFrequency(fing.stringIndex, fing.huiPosition);
+          guqinAudio.playNote(freq, delay, fing.duration, 'triangle');
+        }
+      }
+
+      if (!animationFrameId) {
+        updatePlaybackPosition();
+      }
     }
   }
 

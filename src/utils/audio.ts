@@ -45,9 +45,17 @@ export function calculateFrequency(stringIndex: number, huiPosition: number): nu
   return baseFreq / ratio;
 }
 
+interface ActiveAudioNode {
+  oscillator: OscillatorNode;
+  gainNode: GainNode;
+  scheduledStartTime: number;
+  scheduledStopTime: number;
+}
+
 export class GuqinAudio {
   private audioContext: AudioContext | null = null;
   private masterGain: GainNode | null = null;
+  private activeNodes: ActiveAudioNode[] = [];
 
   private ensureContext(): AudioContext {
     if (!this.audioContext) {
@@ -62,6 +70,13 @@ export class GuqinAudio {
     return this.audioContext;
   }
 
+  private cleanupStoppedNodes(): void {
+    const now = this.audioContext?.currentTime || 0;
+    this.activeNodes = this.activeNodes.filter(
+      (node) => node.scheduledStopTime > now + 0.1,
+    );
+  }
+
   playNote(
     frequency: number,
     startTime: number,
@@ -71,6 +86,7 @@ export class GuqinAudio {
     const ctx = this.ensureContext();
     const now = ctx.currentTime;
     const actualStart = now + startTime;
+    const actualStop = actualStart + duration + 0.1;
 
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
@@ -88,7 +104,16 @@ export class GuqinAudio {
     }
 
     oscillator.start(actualStart);
-    oscillator.stop(actualStart + duration + 0.1);
+    oscillator.stop(actualStop);
+
+    this.activeNodes.push({
+      oscillator,
+      gainNode,
+      scheduledStartTime: actualStart,
+      scheduledStopTime: actualStop,
+    });
+
+    this.cleanupStoppedNodes();
   }
 
   playString(stringIndex: number, huiPosition: number, duration: number): void {
@@ -96,7 +121,29 @@ export class GuqinAudio {
     this.playNote(frequency, 0, duration, 'triangle');
   }
 
+  stopAllActive(): void {
+    const ctx = this.audioContext;
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    for (const node of this.activeNodes) {
+      try {
+        node.gainNode.gain.cancelScheduledValues(now);
+        node.gainNode.gain.setValueAtTime(node.gainNode.gain.value, now);
+        node.gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+        try {
+          node.oscillator.stop(now + 0.15);
+        } catch (e) {
+        }
+      } catch (e) {
+      }
+    }
+    this.activeNodes = [];
+  }
+
   stopAll(): void {
+    this.stopAllActive();
     if (this.audioContext) {
       this.audioContext.close();
       this.audioContext = null;

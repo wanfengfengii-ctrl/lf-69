@@ -7,13 +7,9 @@ const CONFLICTING_LEFT_HAND: string[][] = [
   ['jin', 'tui'],
   ['shang', 'fu'],
   ['xia', 'fu'],
-];
-
-const CONFLICTING_RIGHT_HAND: string[][] = [
-  ['tuo', 'pi'],
-  ['mo', 'tao'],
-  ['gou', 'ti'],
-  ['da', 'zhai'],
+  ['tao', 'ni'],
+  ['tao', 'zhuang'],
+  ['ni', 'zhuang'],
 ];
 
 export function useConflictDetector(
@@ -79,10 +75,7 @@ export function useConflictDetector(
   }
 
   function hasRightHandConflict(rh1: string, rh2: string): boolean {
-    return CONFLICTING_RIGHT_HAND.some(
-      (pair) =>
-        (pair[0] === rh1 && pair[1] === rh2) || (pair[0] === rh2 && pair[1] === rh1),
-    );
+    return rh1 !== rh2;
   }
 
   return {
