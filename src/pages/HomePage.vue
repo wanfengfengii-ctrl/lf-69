@@ -7,12 +7,14 @@ import FingeringList from '@/components/FingeringList.vue';
 import PracticePanel from '@/components/PracticePanel.vue';
 import VersionManager from '@/components/VersionManager.vue';
 import PracticeTrackerPanel from '@/components/PracticeTrackerPanel.vue';
+import AnnotationPanel from '@/components/AnnotationPanel.vue';
+import ReviewPanel from '@/components/ReviewPanel.vue';
 import { useFingeringStore } from '@/composables/useFingeringStore';
-import { Music2, Sparkles, Clock3, Sliders } from 'lucide-vue-next';
+import { Music2, Sparkles, Clock3, Sliders, MessageCircle, ClipboardList } from 'lucide-vue-next';
 
 const { loadSampleData, fingerings } = useFingeringStore();
 
-type TabKey = 'editor' | 'tracker';
+type TabKey = 'editor' | 'tracker' | 'collab';
 const activeTab = ref<TabKey>('editor');
 
 onMounted(() => {
@@ -64,6 +66,18 @@ function handleFingeringAdded() {}
               <Clock3 class="w-4 h-4" />
               练习评估
             </button>
+            <button
+              @click="activeTab = 'collab'"
+              class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+              :class="
+                activeTab === 'collab'
+                  ? 'bg-white text-blue-700 shadow-sm'
+                  : 'text-stone-600 hover:text-stone-800'
+              "
+            >
+              <MessageCircle class="w-4 h-4" />
+              协作批注
+            </button>
           </div>
           <VersionManager />
           <button
@@ -104,6 +118,18 @@ function handleFingeringAdded() {}
           <section class="col-span-12 lg:col-span-8 space-y-6">
             <PracticePanel />
             <StatsPanel />
+          </section>
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'collab'">
+        <div class="grid grid-cols-12 gap-6">
+          <aside class="col-span-12 lg:col-span-4 space-y-6">
+            <AnnotationPanel />
+          </aside>
+          <section class="col-span-12 lg:col-span-8 space-y-6">
+            <ReviewPanel />
+            <TimelineEditor />
           </section>
         </div>
       </template>

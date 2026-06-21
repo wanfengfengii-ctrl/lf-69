@@ -26,6 +26,7 @@ import {
   beatsToSeconds,
   getBarStartTimes,
 } from '@/utils/practice';
+import { useAnnotationStore } from './useAnnotationStore';
 
 const fingerings = ref<Fingering[]>([]);
 const selectedId = ref<string | null>(null);
@@ -200,6 +201,9 @@ export function useFingeringStore() {
         }
       }
 
+      const { removeAnnotationsByTarget } = useAnnotationStore();
+      removeAnnotationsByTarget('fingering', id);
+
       if (selectedId.value === id) {
         selectedId.value = null;
       }
@@ -229,9 +233,19 @@ export function useFingeringStore() {
 
   function clearAll() {
     const oldCount = fingerings.value.length;
+    const { removeAnnotationsByTarget } = useAnnotationStore();
+
+    for (const f of fingerings.value) {
+      removeAnnotationsByTarget('fingering', f.id);
+    }
+    for (const s of practiceSections.value) {
+      removeAnnotationsByTarget('section', s.id);
+    }
+
     fingerings.value = [];
     practiceSections.value = [];
     selectedId.value = null;
+
     saveHistory(`清空所有 (${oldCount}个指法)`);
   }
 
@@ -302,6 +316,8 @@ export function useFingeringStore() {
     if (index > -1) {
       const deleted = practiceSections.value[index];
       practiceSections.value.splice(index, 1);
+      const { removeAnnotationsByTarget } = useAnnotationStore();
+      removeAnnotationsByTarget('section', id);
       saveHistory(`删除练习段: ${deleted.name}`);
     }
   }

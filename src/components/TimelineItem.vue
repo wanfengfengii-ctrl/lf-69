@@ -22,6 +22,9 @@ const props = defineProps<{
   minDuration: number;
   timeAxisMode?: 'seconds' | 'beats';
   bpm?: number;
+  isAnnotated?: boolean;
+  isHighErrorRate?: boolean;
+  annotationCount?: number;
 }>();
 
 const emit = defineEmits<{
@@ -193,7 +196,7 @@ onUnmounted(() => {
     class="timeline-item absolute top-2 bottom-2 rounded-lg cursor-pointer transition-all duration-150 select-none group"
     :class="[
       isSelected ? 'ring-2 ring-amber-500 ring-offset-1 z-10' : '',
-      hasConflict ? 'bg-red-100 border-red-400 border-2' : 'bg-amber-50 border border-amber-300 hover:border-amber-400',
+      hasConflict ? 'bg-red-100 border-red-400 border-2' : isHighErrorRate ? 'bg-red-50 border-red-300 border-2' : isAnnotated ? 'bg-blue-50 border-blue-300 border' : 'bg-amber-50 border border-amber-300 hover:border-amber-400',
       isDragging ? 'opacity-80 scale-[1.02]' : '',
     ]"
     :style="itemStyle"
@@ -220,6 +223,13 @@ onUnmounted(() => {
             @click="handleNoteClick"
           >
             <StickyNote class="w-3.5 h-3.5 text-amber-500" />
+          </span>
+          <span
+            v-if="isAnnotated && annotationCount"
+            class="shrink-0 w-4 h-4 bg-blue-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center"
+            :title="`${annotationCount} 条批注`"
+          >
+            {{ annotationCount > 9 ? '9+' : annotationCount }}
           </span>
         </div>
         <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

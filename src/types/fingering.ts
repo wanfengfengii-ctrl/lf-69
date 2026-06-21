@@ -288,3 +288,48 @@ export interface DateRange {
   start: string | null;
   end: string | null;
 }
+
+export type AnnotationTargetType = 'fingering' | 'section' | 'score';
+export type AnnotationType = 'suggestion' | 'question' | 'error_mark' | 'technique_tip' | 'general';
+
+export interface Annotation {
+  id: string;
+  targetType: AnnotationTargetType;
+  targetId: string;
+  content: string;
+  author: string;
+  annotationType: AnnotationType;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const ANNOTATION_TYPES: { value: AnnotationType; label: string; color: string }[] = [
+  { value: 'suggestion', label: '建议', color: 'blue' },
+  { value: 'question', label: '疑问', color: 'amber' },
+  { value: 'error_mark', label: '错误标记', color: 'red' },
+  { value: 'technique_tip', label: '技巧提示', color: 'emerald' },
+  { value: 'general', label: '一般', color: 'stone' },
+];
+
+export const ANNOTATION_TARGET_TYPES: { value: AnnotationTargetType; label: string }[] = [
+  { value: 'fingering', label: '单个指法' },
+  { value: 'section', label: '练习段' },
+  { value: 'score', label: '整段谱' },
+];
+
+export interface ErrorHotspot {
+  fingeringId: string;
+  character: string;
+  errorCount: number;
+  sectionId: string | null;
+  sectionName: string;
+}
+
+export interface ReviewRecord {
+  id: string;
+  practiceRecordIds: string[];
+  errorHotspots: ErrorHotspot[];
+  improvementSuggestions: string;
+  summary: string;
+  createdAt: number;
+}

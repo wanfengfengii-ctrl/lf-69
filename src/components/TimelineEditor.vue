@@ -4,8 +4,10 @@ import type { Fingering, PracticeSection } from '@/types/fingering';
 import { useFingeringStore } from '@/composables/useFingeringStore';
 import { useConflictDetector } from '@/composables/useConflictDetector';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
+import { useAnnotationStore } from '@/composables/useAnnotationStore';
+import { useReviewStore } from '@/composables/useReviewStore';
 import TimelineItem from './TimelineItem.vue';
-import { Play, Pause, Square, SkipBack, Download, Trash2, FileJson, FileText, Undo2, Redo2, Clock, Music2 } from 'lucide-vue-next';
+import { Play, Pause, Square, SkipBack, Download, Trash2, FileJson, FileText, Undo2, Redo2, Clock, Music2, MessageCircle, AlertTriangle } from 'lucide-vue-next';
 import { secondsToBeats, beatsToSeconds } from '@/utils/practice';
 
 const props = defineProps<{
@@ -59,9 +61,39 @@ const {
   setActiveSection,
 } = useAudioPlayer();
 
+const {
+  isFingeringAnnotated,
+  getAnnotationsForTarget,
+  annotations,
+  annotatedFingeringIds,
+  annotatedSectionIds,
+} = useAnnotationStore();
+
+const {
+  reviewRecords,
+} = useReviewStore();
+
 const timelineRef = ref<HTMLElement | null>(null);
 const showExportModal = ref(false);
 const pps = computed(() => props.pixelPerSecond || 100);
+
+const highErrorFingeringIds = computed(() => {
+  const ids = new Set<string>();
+  for (const review of reviewRecords.value) {
+    for (const hotspot of review.errorHotspots) {
+      ids.add(hotspot.fingeringId);
+    }
+  }
+  return ids;
+});
+
+function getAnnotationCountForFingering(fingeringId: string): number {
+  return getAnnotationsForTarget('fingering', fingeringId).length;
+}
+
+function isFingeringHighErrorRate(fingeringId: string): boolean {
+  return highErrorFingeringIds.value.has(fingeringId);
+}
 const ppb = computed(() => props.pixelPerBeat || 100);
 const minDur = computed(() => props.minDuration || 0.5);
 
@@ -310,6 +342,13 @@ onMounted(() => {
           {{ conflicts.length }} 处冲突
         </span>
         <span
+          v-if="annotatedFingeringIds.size > 0"
+          class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full flex items-center gap-1"
+        >
+          <MessageCircle class="w-3 h-3" />
+          {{ annotatedFingeringIds.size }} 处批注
+        </span>
+        <span
           v-if="activeSection"
           class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full flex items-center gap-1"
         >
@@ -459,6 +498,9 @@ onMounted(() => {
               :total-duration="totalDuration"
               :is-selected="selectedId === fing.id"
               :has-conflict="isFingeringInConflict(fing.id)"
+              :is-annotated="isFingeringAnnotated(fing.id)"
+              :is-high-error-rate="isFingeringHighErrorRate(fing.id)"
+              :annotation-count="getAnnotationCountForFingering(fing.id)"
               :pixel-per-second="practiceConfig.timeAxisMode === 'seconds' ? pps : beatsToSeconds(1, practiceConfig.bpm) * ppb"
               :min-duration="minDur"
               :time-axis-mode="practiceConfig.timeAxisMode"
@@ -487,6 +529,14 @@ onMounted(() => {
         <div class="flex items-center gap-1.5">
           <div class="w-3 h-3 bg-red-100 border-2 border-red-400 rounded"></div>
           <span>冲突指法</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-3 h-3 bg-blue-50 border border-blue-300 rounded"></div>
+          <span>已批注</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-3 h-3 bg-red-50 border-2 border-red-300 rounded"></div>
+          <span>高错误率</span>
         </div>
         <div class="flex items-center gap-1.5">
           <div class="w-0.5 h-3 bg-amber-300"></div>
