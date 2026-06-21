@@ -1,24 +1,29 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import type { Fingering } from '@/types/fingering';
+import type { Fingering, PracticeSection } from '@/types/fingering';
 import { useFingeringStore } from '@/composables/useFingeringStore';
 import { useConflictDetector } from '@/composables/useConflictDetector';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
 import TimelineItem from './TimelineItem.vue';
-import { Play, Pause, Square, SkipBack, Download, Trash2, FileJson } from 'lucide-vue-next';
+import { Play, Pause, Square, SkipBack, Download, Trash2, FileJson, FileText, Undo2, Redo2, Clock, Music2 } from 'lucide-vue-next';
+import { secondsToBeats, beatsToSeconds } from '@/utils/practice';
 
 const props = defineProps<{
   pixelPerSecond?: number;
+  pixelPerBeat?: number;
   minDuration?: number;
 }>();
 
 const emit = defineEmits<{
   (e: 'export'): void;
+  (e: 'playSection', section: PracticeSection): void;
 }>();
 
 const {
   sortedFingerings,
   totalDuration,
+  totalBeats,
+  barStartTimes,
   selectedId,
   selectFingering,
   updateDuration,
@@ -26,46 +31,172 @@ const {
   clearAll,
   fingerings,
   exportJson,
+  exportPracticeViewJson,
+  practiceConfig,
+  practiceSections,
+  canUndo,
+  canRedo,
+  undo,
+  redo,
 } = useFingeringStore();
 
 const { isFingeringInConflict, conflicts, hasConflicts } = useConflictDetector(
   sortedFingerings,
 );
 
-const { isPlaying, currentTime, play, pause, stop, seek, setFingerings } = useAudioPlayer();
+const {
+  isPlaying,
+  currentTime,
+  playDuration,
+  tempoMultiplier,
+  activeSection,
+  play,
+  pause,
+  stop,
+  seek,
+  setFingerings,
+  playSection,
+  setActiveSection,
+} = useAudioPlayer();
 
 const timelineRef = ref<HTMLElement | null>(null);
 const showExportModal = ref(false);
 const pps = computed(() => props.pixelPerSecond || 100);
+const ppb = computed(() => props.pixelPerBeat || 100);
 const minDur = computed(() => props.minDuration || 0.5);
+
+const pixelPerUnit = computed(() => {
+  return practiceConfig.value.timeAxisMode === 'seconds' ? pps.value : ppb.value;
+});
 
 const timelineWidth = computed(() => {
   const minWidth = 800;
-  const calculated = totalDuration.value * pps.value + 200;
+  const totalLength = practiceConfig.value.timeAxisMode === 'seconds'
+    ? totalDuration.value
+    : totalBeats.value;
+  const calculated = totalLength * pixelPerUnit.value + 200;
   return Math.max(minWidth, calculated);
 });
 
-const playbackLineStyle = computed(() => ({
-  left: `${currentTime.value * pps.value}px`,
-}));
+const displayTime = computed(() => {
+  if (activeSection.value) {
+    const sectionStart = sortedFingerings.value
+      .filter((f) => activeSection.value!.fingeringIds.includes(f.id))
+      .sort((a, b) => a.startTime - b.startTime)[0]?.startTime || 0;
+    return (currentTime.value * tempoMultiplier.value + sectionStart);
+  }
+  return currentTime.value * tempoMultiplier.value;
+});
+
+const playbackLineStyle = computed(() => {
+  const position = practiceConfig.value.timeAxisMode === 'seconds'
+    ? displayTime.value * pps.value
+    : secondsToBeats(displayTime.value, practiceConfig.value.bpm) * ppb.value;
+  return {
+    left: `${position}px`,
+  };
+});
 
 const timeMarkers = computed(() => {
-  const markers: number[] = [];
-  const step = 1;
-  const end = Math.ceil(totalDuration.value) + 2;
-  for (let i = 0; i <= end; i += step) {
-    markers.push(i);
+  const markers: Array<{ value: number; label: string; isBar?: boolean }> = [];
+
+  if (practiceConfig.value.timeAxisMode === 'seconds') {
+    const step = 1;
+    const end = Math.ceil(totalDuration.value) + 2;
+    for (let i = 0; i <= end; i += step) {
+      markers.push({ value: i, label: `${i}s` });
+    }
+  } else {
+    const { beats } = practiceConfig.value.timeSignature;
+    const end = Math.ceil(totalBeats.value) + beats;
+    for (let i = 0; i <= end; i++) {
+      const isBar = i % beats === 0;
+      const barNumber = Math.floor(i / beats) + 1;
+      const beatInBar = (i % beats) + 1;
+      const label = isBar ? `${barNumber}` : `${beatInBar}`;
+      markers.push({ value: i, label, isBar });
+    }
   }
+
   return markers;
+});
+
+const barLines = computed(() => {
+  if (practiceConfig.value.timeAxisMode === 'seconds') {
+    return barStartTimes.value.map((time) => ({
+      position: time * pps.value,
+      isMajor: true,
+    }));
+  }
+  const { beats } = practiceConfig.value.timeSignature;
+  const totalBars = Math.ceil(totalBeats.value / beats) + 1;
+  const lines: Array<{ position: number; isMajor: boolean }> = [];
+  for (let i = 0; i <= totalBars; i++) {
+    lines.push({
+      position: i * beats * ppb.value,
+      isMajor: true,
+    });
+  }
+  return lines;
+});
+
+const sectionRanges = computed(() => {
+  return practiceSections.value
+    .map((section) => {
+      const sectionFings = sortedFingerings.value.filter((f) =>
+        section.fingeringIds.includes(f.id),
+      );
+      if (sectionFings.length === 0) return null;
+
+      const sorted = [...sectionFings].sort((a, b) => a.startTime - b.startTime);
+      const startTime = sorted[0].startTime;
+      const endTime = sorted[sorted.length - 1].startTime + sorted[sorted.length - 1].duration;
+
+      let startPos: number, endPos: number;
+
+      if (practiceConfig.value.timeAxisMode === 'seconds') {
+        startPos = startTime * pps.value;
+        endPos = endTime * pps.value;
+      } else {
+        startPos = secondsToBeats(startTime, practiceConfig.value.bpm) * ppb.value;
+        endPos = secondsToBeats(endTime, practiceConfig.value.bpm) * ppb.value;
+      }
+
+      return {
+        id: section.id,
+        name: section.name,
+        left: startPos,
+        width: endPos - startPos,
+        isActive: activeSection.value?.id === section.id,
+        loop: section.loop,
+      };
+    })
+    .filter(Boolean);
 });
 
 function handleTimelineClick(e: MouseEvent) {
   if (!timelineRef.value) return;
   const rect = timelineRef.value.getBoundingClientRect();
   const x = e.clientX - rect.left;
-  const time = x / pps.value;
-  if (time >= 0 && time <= totalDuration.value) {
-    seek(time);
+
+  let time: number;
+  if (practiceConfig.value.timeAxisMode === 'seconds') {
+    time = x / pps.value;
+  } else {
+    const beat = x / ppb.value;
+    time = beatsToSeconds(beat, practiceConfig.value.bpm);
+  }
+
+  if (activeSection.value) {
+    const sectionStart = sortedFingerings.value
+      .filter((f) => activeSection.value!.fingeringIds.includes(f.id))
+      .sort((a, b) => a.startTime - b.startTime)[0]?.startTime || 0;
+    const relativeTime = Math.max(0, time - sectionStart);
+    seek(relativeTime / tempoMultiplier.value);
+  } else {
+    if (time >= 0 && time <= totalDuration.value) {
+      seek(time / tempoMultiplier.value);
+    }
   }
 }
 
@@ -90,14 +221,22 @@ function handlePlay() {
 }
 
 function handleStop() {
+  setActiveSection(null);
   stop();
 }
 
 function handleRestart() {
-  stop();
-  setTimeout(() => {
-    play();
-  }, 50);
+  if (activeSection.value) {
+    stop();
+    setTimeout(() => {
+      playSection(activeSection.value!, sortedFingerings.value);
+    }, 50);
+  } else {
+    stop();
+    setTimeout(() => {
+      play();
+    }, 50);
+  }
 }
 
 function handleExport() {
@@ -116,6 +255,31 @@ function handleDownloadJson() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showExportModal.value = false;
+}
+
+function handleDownloadPracticeView() {
+  const jsonStr = exportPracticeViewJson('古琴练习谱');
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `guqin-practice-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showExportModal.value = false;
+}
+
+function handlePlaySection(section: PracticeSection) {
+  emit('playSection', section);
+}
+
+function getTimeLabel(time: number): string {
+  if (practiceConfig.value.timeAxisMode === 'seconds') {
+    return `${time.toFixed(1)}s`;
+  }
+  return `${secondsToBeats(time, practiceConfig.value.bpm).toFixed(1)}拍`;
 }
 
 watch(
@@ -145,9 +309,35 @@ onMounted(() => {
         >
           {{ conflicts.length }} 处冲突
         </span>
+        <span
+          v-if="activeSection"
+          class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full flex items-center gap-1"
+        >
+          <Music2 class="w-3 h-3" />
+          {{ activeSection.name }}
+        </span>
       </div>
 
       <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1 bg-stone-100 rounded-lg p-1">
+          <button
+            @click="undo"
+            :disabled="!canUndo"
+            class="p-2 rounded-md hover:bg-white transition-colors text-stone-600 hover:text-stone-800 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="撤销"
+          >
+            <Undo2 class="w-4 h-4" />
+          </button>
+          <button
+            @click="redo"
+            :disabled="!canRedo"
+            class="p-2 rounded-md hover:bg-white transition-colors text-stone-600 hover:text-stone-800 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="重做"
+          >
+            <Redo2 class="w-4 h-4" />
+          </button>
+        </div>
+
         <div class="flex items-center gap-1 bg-stone-100 rounded-lg p-1">
           <button
             @click="handleRestart"
@@ -198,35 +388,66 @@ onMounted(() => {
 
     <div class="p-4">
       <div class="text-sm text-stone-500 mb-2 flex items-center gap-2">
-        <span>总时长: {{ totalDuration.toFixed(1) }}s</span>
+        <Clock class="w-4 h-4" />
+        <span>
+          总时长: {{ totalDuration.toFixed(1) }}s / {{ totalBeats.toFixed(1) }}拍
+          <span v-if="tempoMultiplier !== 1" class="text-amber-600"> ({{ tempoMultiplier.toFixed(2) }}x)</span>
+        </span>
         <span class="text-stone-300">|</span>
         <span>{{ sortedFingerings.length }} 个指法</span>
+        <span class="text-stone-300">|</span>
+        <span>BPM: {{ practiceConfig.bpm }}</span>
+        <span class="text-stone-300">|</span>
+        <span>节拍: {{ practiceConfig.timeSignature.beats }}/{{ practiceConfig.timeSignature.beatType }}</span>
       </div>
 
       <div
         ref="timelineRef"
         class="relative overflow-x-auto rounded-lg border border-stone-200 bg-stone-50"
-        style="height: 220px"
+        style="height: 240px"
         @click="handleTimelineClick"
       >
         <div class="relative" :style="{ width: `${timelineWidth}px`, height: '100%' }">
+          <div
+            v-for="section in sectionRanges"
+            :key="'section-' + section!.id"
+            class="absolute top-8 bottom-0 rounded-md transition-all pointer-events-none z-5"
+            :class="section!.isActive ? 'bg-amber-200/30 border-2 border-amber-400' : 'bg-blue-100/20 border border-blue-300'"
+            :style="{
+              left: `${section!.left}px`,
+              width: `${section!.width}px`,
+            }"
+          >
+            <div class="absolute -top-5 left-1 text-xs font-medium text-stone-600 flex items-center gap-1">
+              {{ section!.name }}
+              <span v-if="section!.loop" class="text-amber-600">↻</span>
+            </div>
+          </div>
+
           <div class="absolute top-0 left-0 right-0 h-8 border-b border-stone-200 bg-white flex items-end px-2">
             <div
-              v-for="time in timeMarkers"
-              :key="time"
-              class="absolute bottom-0 text-xs text-stone-400"
-              :style="{ left: `${time * pps}px` }"
+              v-for="marker in timeMarkers"
+              :key="marker.value"
+              class="absolute bottom-0 text-xs transition-all"
+              :class="[
+                marker.isBar ? 'text-amber-700 font-semibold' : 'text-stone-400',
+              ]"
+              :style="{
+                left: `${marker.value * pixelPerUnit}px`,
+                transform: marker.isBar ? 'translateX(-50%)' : 'translateX(-50%)',
+              }"
             >
-              {{ time }}s
+              {{ marker.label }}
             </div>
           </div>
 
           <div class="absolute top-8 left-0 right-0 bottom-0">
             <div
-              v-for="time in timeMarkers"
-              :key="'line-' + time"
-              class="absolute top-0 bottom-0 w-px bg-stone-200"
-              :style="{ left: `${time * pps}px` }"
+              v-for="(line, idx) in barLines"
+              :key="'bar-' + idx"
+              class="absolute top-0 bottom-0 transition-all"
+              :class="line.isMajor ? 'w-0.5 bg-amber-300' : 'w-px bg-stone-200'"
+              :style="{ left: `${line.position}px` }"
             ></div>
           </div>
 
@@ -238,7 +459,7 @@ onMounted(() => {
               :total-duration="totalDuration"
               :is-selected="selectedId === fing.id"
               :has-conflict="isFingeringInConflict(fing.id)"
-              :pixel-per-second="pps"
+              :pixel-per-second="practiceConfig.timeAxisMode === 'seconds' ? pps : beatsToSeconds(1, practiceConfig.bpm) * ppb"
               :min-duration="minDur"
               @select="handleSelect(fing.id)"
               @duration-change="(d) => handleDurationChange(fing.id, d)"
@@ -256,7 +477,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="mt-3 flex items-center gap-4 text-xs text-stone-500">
+      <div class="mt-3 flex items-center gap-4 text-xs text-stone-500 flex-wrap">
         <div class="flex items-center gap-1.5">
           <div class="w-3 h-3 bg-amber-50 border border-amber-300 rounded"></div>
           <span>正常指法</span>
@@ -264,6 +485,14 @@ onMounted(() => {
         <div class="flex items-center gap-1.5">
           <div class="w-3 h-3 bg-red-100 border-2 border-red-400 rounded"></div>
           <span>冲突指法</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-0.5 h-3 bg-amber-300"></div>
+          <span>小节线</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="w-3 h-3 bg-blue-100/50 border border-blue-300 rounded"></div>
+          <span>练习段</span>
         </div>
         <div class="flex items-center gap-1.5">
           <div class="w-0.5 h-3 bg-red-500"></div>
@@ -281,11 +510,11 @@ onMounted(() => {
         <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-              <FileJson class="w-5 h-5 text-amber-600" />
+              <Download class="w-5 h-5 text-amber-600" />
             </div>
             <div>
               <h3 class="text-lg font-semibold text-stone-800">导出练习谱</h3>
-              <p class="text-sm text-stone-500">将指法数据导出为 JSON 格式</p>
+              <p class="text-sm text-stone-500">选择导出格式</p>
             </div>
           </div>
 
@@ -298,21 +527,40 @@ onMounted(() => {
             </p>
           </div>
 
-          <div class="flex gap-3 justify-end mt-6">
+          <div class="space-y-3">
+            <button
+              @click="handleDownloadJson"
+              class="w-full px-4 py-3 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-lg transition-colors flex items-center gap-3 text-left"
+              :class="{ 'opacity-50 cursor-not-allowed': conflicts.length > 0 }"
+              :disabled="conflicts.length > 0"
+            >
+              <FileJson class="w-5 h-5 text-amber-600" />
+              <div>
+                <div class="font-medium text-stone-800">完整数据 (JSON)</div>
+                <div class="text-xs text-stone-500">包含所有指法、练习段、配置信息</div>
+              </div>
+            </button>
+
+            <button
+              @click="handleDownloadPracticeView"
+              class="w-full px-4 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors flex items-center gap-3 text-left"
+              :class="{ 'opacity-50 cursor-not-allowed': conflicts.length > 0 }"
+              :disabled="conflicts.length > 0"
+            >
+              <FileText class="w-5 h-5 text-amber-600" />
+              <div>
+                <div class="font-medium text-stone-800">练习视图 (JSON)</div>
+                <div class="text-xs text-stone-500">适用于练习展示的结构化数据</div>
+              </div>
+            </button>
+          </div>
+
+          <div class="flex justify-end mt-6">
             <button
               @click="showExportModal = false"
               class="px-4 py-2 text-stone-600 hover:bg-stone-100 rounded-lg transition-colors"
             >
               取消
-            </button>
-            <button
-              @click="handleDownloadJson"
-              class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium flex items-center gap-2"
-              :class="{ 'opacity-50 cursor-not-allowed': conflicts.length > 0 }"
-              :disabled="conflicts.length > 0"
-            >
-              <Download class="w-4 h-4" />
-              下载 JSON
             </button>
           </div>
         </div>

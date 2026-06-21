@@ -7,13 +7,17 @@ import {
   LEFT_HAND_TECHNIQUES,
   STRING_LABELS,
   HUI_POSITIONS,
+  DIFFICULTY_TAGS,
 } from '@/types/fingering';
-import { Trash2, Volume2, AlertTriangle } from 'lucide-vue-next';
+import type { DifficultyTag } from '@/types/fingering';
+import { Trash2, Volume2, AlertTriangle, StickyNote } from 'lucide-vue-next';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
 
 const { sortedFingerings, selectedId, selectFingering, deleteFingering } = useFingeringStore();
 const { isFingeringInConflict, getConflictsForFingering } = useConflictDetector(sortedFingerings);
 const { playSingleFingering } = useAudioPlayer();
+
+const difficultyOptions = DIFFICULTY_TAGS;
 
 function getRightHandLabel(value: string) {
   return RIGHT_HAND_TECHNIQUES.find((t) => t.value === value)?.label || value;
@@ -29,6 +33,28 @@ function getStringLabel(index: number) {
 
 function getHuiLabel(pos: number) {
   return HUI_POSITIONS.find((h) => h.value === pos)?.label || `${pos}徽`;
+}
+
+function getDifficultyColor(difficulty?: DifficultyTag): string {
+  if (!difficulty) return '';
+  const diff = difficultyOptions.find((d) => d.value === difficulty);
+  switch (diff?.color) {
+    case 'emerald':
+      return 'bg-emerald-500';
+    case 'amber':
+      return 'bg-amber-500';
+    case 'orange':
+      return 'bg-orange-500';
+    case 'red':
+      return 'bg-red-500';
+    default:
+      return 'bg-stone-400';
+  }
+}
+
+function getDifficultyLabel(difficulty?: DifficultyTag): string {
+  if (!difficulty) return '';
+  return difficultyOptions.find((d) => d.value === difficulty)?.label || '';
 }
 
 function handlePlay(fing: typeof sortedFingerings.value[0]) {
@@ -67,18 +93,44 @@ function handleDelete(id: string) {
             <div class="flex items-start gap-3 flex-1 min-w-0">
               <div class="flex flex-col items-center">
                 <span class="text-xs text-stone-400">{{ index + 1 }}</span>
-                <div
-                  v-if="isFingeringInConflict(fing.id)"
-                  class="mt-1"
-                  :title="getConflictsForFingering(fing.id).map(c => c.description).join('\n')"
-                >
-                  <AlertTriangle class="w-4 h-4 text-red-500" />
+                <div class="flex flex-col items-center gap-1 mt-1">
+                  <div
+                    v-if="isFingeringInConflict(fing.id)"
+                    :title="getConflictsForFingering(fing.id).map(c => c.description).join('\n')"
+                  >
+                    <AlertTriangle class="w-4 h-4 text-red-500" />
+                  </div>
+                  <span
+                    v-if="fing.difficulty"
+                    class="w-2 h-2 rounded-full"
+                    :class="getDifficultyColor(fing.difficulty)"
+                    :title="`难度: ${getDifficultyLabel(fing.difficulty)}`"
+                  ></span>
                 </div>
               </div>
 
               <div class="flex-1 min-w-0">
-                <div class="font-medium text-stone-800 truncate">
-                  {{ fing.character }}
+                <div class="flex items-center gap-2">
+                  <span class="font-medium text-stone-800 truncate">
+                    {{ fing.character }}
+                  </span>
+                  <span
+                    v-if="fing.difficulty"
+                    class="text-xs px-1.5 py-0.5 rounded-full"
+                    :class="{
+                      'bg-emerald-100 text-emerald-700': fing.difficulty === 'easy',
+                      'bg-amber-100 text-amber-700': fing.difficulty === 'medium',
+                      'bg-orange-100 text-orange-700': fing.difficulty === 'hard',
+                      'bg-red-100 text-red-700': fing.difficulty === 'expert',
+                    }"
+                  >
+                    {{ getDifficultyLabel(fing.difficulty) }}
+                  </span>
+                  <StickyNote
+                    v-if="fing.note"
+                    class="w-3.5 h-3.5 text-amber-500 shrink-0"
+                    :title="fing.note"
+                  />
                 </div>
                 <div class="text-xs text-stone-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
                   <span>{{ getStringLabel(fing.stringIndex) }}</span>
@@ -92,6 +144,12 @@ function handleDelete(id: string) {
                   {{ fing.startTime.toFixed(1) }}s - {{ (fing.startTime + fing.duration).toFixed(1) }}s
                   <span class="text-stone-300 mx-1">|</span>
                   时长 {{ fing.duration.toFixed(1) }}s
+                </div>
+                <div
+                  v-if="fing.note"
+                  class="text-xs text-stone-600 mt-1 px-2 py-1 bg-amber-50 rounded border border-amber-100"
+                >
+                  {{ fing.note }}
                 </div>
               </div>
             </div>

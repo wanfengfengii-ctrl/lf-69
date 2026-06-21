@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import type { Fingering } from '@/types/fingering';
+import type { Fingering, DifficultyTag } from '@/types/fingering';
 import {
   RIGHT_HAND_TECHNIQUES,
   LEFT_HAND_TECHNIQUES,
   STRING_LABELS,
   HUI_POSITIONS,
+  DIFFICULTY_TAGS,
 } from '@/types/fingering';
-import { GripVertical, Trash2, Volume2 } from 'lucide-vue-next';
+import { GripVertical, Trash2, Volume2, StickyNote } from 'lucide-vue-next';
 import { useFingeringStore } from '@/composables/useFingeringStore';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
 
@@ -26,7 +27,7 @@ const emit = defineEmits<{
   (e: 'startTimeChange', startTime: number): void;
 }>();
 
-const { deleteFingering } = useFingeringStore();
+const { deleteFingering, updateFingeringNote, updateFingeringDifficulty } = useFingeringStore();
 const { playSingleFingering } = useAudioPlayer();
 
 const isDragging = ref(false);
@@ -34,6 +35,8 @@ const isResizing = ref(false);
 const dragStartX = ref(0);
 const initialStartTime = ref(0);
 const initialDuration = ref(0);
+const showNoteEditor = ref(false);
+const noteText = ref('');
 
 const rightHandLabel = computed(() => {
   const t = RIGHT_HAND_TECHNIQUES.find((t) => t.value === props.fingering.rightHand);
@@ -50,6 +53,25 @@ const stringLabel = computed(() => STRING_LABELS[props.fingering.stringIndex - 1
 const huiLabel = computed(() => {
   const h = HUI_POSITIONS.find((h) => h.value === props.fingering.huiPosition);
   return h?.label || `${props.fingering.huiPosition}徽`;
+});
+
+const difficultyOptions = DIFFICULTY_TAGS;
+
+const difficultyColor = computed(() => {
+  if (!props.fingering.difficulty) return '';
+  const diff = difficultyOptions.find((d) => d.value === props.fingering.difficulty);
+  switch (diff?.color) {
+    case 'emerald':
+      return 'bg-emerald-500';
+    case 'amber':
+      return 'bg-amber-500';
+    case 'orange':
+      return 'bg-orange-500';
+    case 'red':
+      return 'bg-red-500';
+    default:
+      return 'bg-stone-400';
+  }
 });
 
 const itemStyle = computed(() => {
@@ -124,6 +146,23 @@ function handlePreview(e: MouseEvent) {
   playSingleFingering(props.fingering);
 }
 
+function handleNoteClick(e: MouseEvent) {
+  e.stopPropagation();
+  noteText.value = props.fingering.note || '';
+  showNoteEditor.value = true;
+}
+
+function saveNote() {
+  updateFingeringNote(props.fingering.id, noteText.value.trim());
+  showNoteEditor.value = false;
+}
+
+function handleDifficultyChange(e: Event) {
+  e.stopPropagation();
+  const value = (e.target as HTMLSelectElement).value as DifficultyTag;
+  updateFingeringDifficulty(props.fingering.id, value);
+}
+
 onUnmounted(() => {
   document.removeEventListener('mousemove', handleMouseMove);
   document.removeEventListener('mouseup', handleMouseUp);
@@ -145,13 +184,35 @@ onUnmounted(() => {
   >
     <div class="h-full p-2 flex flex-col justify-between overflow-hidden">
       <div class="flex items-start justify-between gap-1">
-        <span
-          class="text-sm font-semibold text-stone-800 truncate"
-          :class="{ 'text-red-700': hasConflict }"
-        >
-          {{ fingering.character }}
-        </span>
-        <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div class="flex items-center gap-1.5 min-w-0 flex-1">
+          <span
+            v-if="fingering.difficulty"
+            class="w-2 h-2 rounded-full shrink-0"
+            :class="difficultyColor"
+            :title="`难度: ${difficultyOptions.find(d => d.value === fingering.difficulty)?.label}`"
+          ></span>
+          <span
+            class="text-sm font-semibold text-stone-800 truncate"
+            :class="{ 'text-red-700': hasConflict }"
+          >
+            {{ fingering.character }}
+          </span>
+          <span
+            v-if="fingering.note"
+            class="shrink-0"
+            @click="handleNoteClick"
+          >
+            <StickyNote class="w-3.5 h-3.5 text-amber-500" />
+          </span>
+        </div>
+        <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button
+            class="action-btn p-1 rounded hover:bg-white/60 text-stone-500 hover:text-stone-700"
+            @click="handleNoteClick"
+            title="编辑备注"
+          >
+            <StickyNote class="w-3.5 h-3.5" />
+          </button>
           <button
             class="action-btn p-1 rounded hover:bg-white/60 text-stone-500 hover:text-stone-700"
             @click="handlePreview"
@@ -211,5 +272,56 @@ onUnmounted(() => {
     >
       !
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="showNoteEditor"
+        class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+        @click.self="showNoteEditor = false"
+      >
+        <div class="bg-white rounded-xl shadow-xl p-4 w-full max-w-sm mx-4">
+          <h4 class="text-sm font-semibold text-stone-800 mb-3">
+            编辑备注 - {{ fingering.character }}
+          </h4>
+          <textarea
+            v-model="noteText"
+            rows="3"
+            placeholder="添加练习备注..."
+            class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-stone-800 text-sm resize-none"
+            @click.stop
+          ></textarea>
+          
+          <div class="mt-3">
+            <label class="block text-xs font-medium text-stone-700 mb-1.5">难度标签</label>
+            <select
+              :value="fingering.difficulty || ''"
+              class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-stone-800 bg-white text-sm"
+              @change="handleDifficultyChange"
+              @click.stop
+            >
+              <option value="">未设置</option>
+              <option v-for="d in difficultyOptions" :key="d.value" :value="d.value">
+                {{ d.label }}
+              </option>
+            </select>
+          </div>
+
+          <div class="flex gap-2 justify-end mt-4">
+            <button
+              @click="showNoteEditor = false"
+              class="px-3 py-1.5 text-stone-600 hover:bg-stone-100 rounded-lg transition-colors text-sm"
+            >
+              取消
+            </button>
+            <button
+              @click="saveNote"
+              class="px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium"
+            >
+              保存
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

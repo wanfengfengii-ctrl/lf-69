@@ -4,13 +4,15 @@ import {
   RIGHT_HAND_TECHNIQUES,
   LEFT_HAND_TECHNIQUES,
   HUI_POSITIONS,
+  DIFFICULTY_TAGS,
   type RightHandTechnique,
   type LeftHandTechnique,
   type Fingering,
+  type DifficultyTag,
 } from '@/types/fingering';
 import { useFingeringStore } from '@/composables/useFingeringStore';
 import { validateFingering } from '@/utils/validation';
-import { Volume2 } from 'lucide-vue-next';
+import { Volume2, StickyNote, Tag } from 'lucide-vue-next';
 import { useAudioPlayer } from '@/composables/useAudioPlayer';
 
 const emit = defineEmits<{
@@ -26,11 +28,14 @@ const huiPosition = ref(7);
 const rightHand = ref<RightHandTechnique>('tao');
 const leftHand = ref<LeftHandTechnique>('none');
 const duration = ref(1);
+const note = ref('');
+const difficulty = ref<DifficultyTag | ''>('');
 const errors = ref<string[]>([]);
 
 const huiOptions = computed(() => HUI_POSITIONS);
 const rightHandOptions = computed(() => RIGHT_HAND_TECHNIQUES);
 const leftHandOptions = computed(() => LEFT_HAND_TECHNIQUES);
+const difficultyOptions = computed(() => DIFFICULTY_TAGS);
 
 const formData = computed(() => ({
   character: character.value,
@@ -40,6 +45,8 @@ const formData = computed(() => ({
   leftHand: leftHand.value,
   duration: duration.value,
   startTime: totalDuration.value,
+  note: note.value.trim() || undefined,
+  difficulty: difficulty.value || undefined,
 }));
 
 function validateForm() {
@@ -54,6 +61,8 @@ function handleSubmit() {
   const result = addFingering(formData.value);
   if (result.success) {
     character.value = '';
+    note.value = '';
+    difficulty.value = '';
     errors.value = [];
     emit('added');
   } else {
@@ -156,6 +165,41 @@ watch(formData, () => {
             class="flex-1 h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
           />
           <span class="text-sm font-medium text-stone-700 w-12 text-right">{{ duration.toFixed(1) }}s</span>
+        </div>
+      </div>
+
+      <div class="border-t border-stone-200 pt-4">
+        <h4 class="text-sm font-medium text-stone-700 mb-3 flex items-center gap-1.5">
+          <Tag class="w-4 h-4 text-amber-600" />
+          练习信息
+        </h4>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-stone-600 mb-1.5">难度标签</label>
+            <select
+              v-model="difficulty"
+              class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-stone-800 bg-white text-sm"
+            >
+              <option value="">未设置</option>
+              <option v-for="d in difficultyOptions" :key="d.value" :value="d.value">
+                {{ d.label }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-stone-600 mb-1.5 flex items-center gap-1">
+              <StickyNote class="w-3.5 h-3.5" />
+              练习备注
+            </label>
+            <textarea
+              v-model="note"
+              rows="2"
+              placeholder="添加练习备注（可选）..."
+              class="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-stone-800 text-sm resize-none"
+            ></textarea>
+          </div>
         </div>
       </div>
 

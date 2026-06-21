@@ -4,6 +4,8 @@ import FingeringForm from '@/components/FingeringForm.vue';
 import TimelineEditor from '@/components/TimelineEditor.vue';
 import StatsPanel from '@/components/StatsPanel.vue';
 import FingeringList from '@/components/FingeringList.vue';
+import PracticePanel from '@/components/PracticePanel.vue';
+import VersionManager from '@/components/VersionManager.vue';
 import { useFingeringStore } from '@/composables/useFingeringStore';
 import { Music2, Sparkles } from 'lucide-vue-next';
 
@@ -33,13 +35,16 @@ function handleFingeringAdded() {
           </div>
         </div>
 
-        <button
-          @click="loadSampleData"
-          class="px-4 py-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-2"
-        >
-          <Sparkles class="w-4 h-4" />
-          加载示例
-        </button>
+        <div class="flex items-center gap-2">
+          <VersionManager />
+          <button
+            @click="loadSampleData"
+            class="px-4 py-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-2"
+          >
+            <Sparkles class="w-4 h-4" />
+            加载示例
+          </button>
+        </div>
       </div>
     </header>
 
@@ -47,6 +52,7 @@ function handleFingeringAdded() {
       <div class="grid grid-cols-12 gap-6">
         <aside class="col-span-12 lg:col-span-3 space-y-6">
           <FingeringForm @added="handleFingeringAdded" />
+          <PracticePanel />
         </aside>
 
         <section class="col-span-12 lg:col-span-6 space-y-6">
