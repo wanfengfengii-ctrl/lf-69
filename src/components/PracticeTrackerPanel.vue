@@ -18,11 +18,13 @@ import {
   ChevronDown,
   ChevronUp,
   Star,
+  ListOrdered,
 } from 'lucide-vue-next';
 import PracticeRecordForm from './PracticeRecordForm.vue';
 
 const {
   filteredRecords,
+  recentRecords,
   dailyStats,
   sectionStats,
   totalStats,
@@ -42,7 +44,7 @@ const editingRecord = ref<PracticeRecord | null>(null);
 const showForm = ref(false);
 const filterStart = ref('');
 const filterEnd = ref('');
-const expandedSections = ref<string[]>(['summary', 'records', 'daily', 'sections']);
+const expandedSections = ref<string[]>(['recent', 'summary', 'records', 'daily', 'sections']);
 
 watch(
   [filterStart, filterEnd],
@@ -251,8 +253,10 @@ const warningSections = computed(() => {
           </div>
         </div>
         <div class="bg-stone-50 rounded-lg p-3 border border-stone-200">
-          <div class="text-2xl font-bold text-stone-800">{{ formatDuration(totalStats.totalDuration).split(' ')[0] }}</div>
-          <div class="text-xs text-stone-500 flex items-center gap-1">
+          <div class="text-xl font-bold text-stone-800 leading-tight">
+            {{ formatDuration(totalStats.totalDuration) }}
+          </div>
+          <div class="text-xs text-stone-500 flex items-center gap-1 mt-1">
             <Clock class="w-3 h-3" />
             总时长
           </div>
@@ -278,6 +282,90 @@ const warningSections = computed(() => {
           <div class="text-xs text-stone-500 flex items-center gap-1">
             <Star class="w-3 h-3" />
             平均自评
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="isSectionExpanded('recent')"
+      class="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden"
+    >
+      <div
+        class="p-4 border-b border-stone-200 bg-stone-50 flex items-center justify-between cursor-pointer"
+        @click="toggleSection('recent')"
+      >
+        <h4 class="text-sm font-semibold text-stone-800 flex items-center gap-2">
+          <ListOrdered class="w-4 h-4 text-purple-600" />
+          最近练习记录
+          <span class="text-xs font-normal text-stone-500">(最近 {{ recentRecords.length }} 条)</span>
+        </h4>
+        <ChevronUp v-if="isSectionExpanded('recent')" class="w-4 h-4 text-stone-500" />
+        <ChevronDown v-else class="w-4 h-4 text-stone-500" />
+      </div>
+      <div v-if="isSectionExpanded('recent')" class="p-4">
+        <div v-if="recentRecords.length === 0" class="text-center py-8 text-stone-400 text-sm">
+          暂无练习记录，点击"记录练习"开始吧
+        </div>
+        <div v-else class="space-y-2">
+          <div
+            v-for="r in recentRecords"
+            :key="r.id"
+            class="p-3 bg-gradient-to-r from-stone-50 to-purple-50 rounded-lg border border-stone-200 hover:border-purple-300 transition-all"
+          >
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-sm font-medium text-stone-800">{{ r.sectionName }}</span>
+                  <span
+                    class="px-2 py-0.5 text-xs rounded-full font-medium"
+                    :class="getRatingColor(r.selfRating)"
+                  >
+                    {{ getRatingLabel(r.selfRating) }}
+                  </span>
+                </div>
+                <div class="text-xs text-stone-500">
+                  {{ formatDateTime(r.startTime) }} · {{ formatDuration(r.actualDuration) }}
+                </div>
+              </div>
+              <div class="flex items-center gap-1 ml-2">
+                <button
+                  @click="handleEdit(r)"
+                  class="p-1.5 rounded hover:bg-stone-200 text-stone-500 hover:text-stone-700 transition-colors"
+                  title="编辑"
+                >
+                  <Edit3 class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  @click="handleDelete(r.id)"
+                  class="p-1.5 rounded hover:bg-red-100 text-stone-500 hover:text-red-600 transition-colors"
+                  title="删除"
+                >
+                  <Trash2 class="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+            <div class="grid grid-cols-4 gap-2 text-xs">
+              <div>
+                <div class="text-stone-400">目标 BPM</div>
+                <div class="font-medium text-stone-700">{{ r.targetBpm }}</div>
+              </div>
+              <div>
+                <div class="text-stone-400">实际 BPM</div>
+                <div class="font-medium text-emerald-700">{{ r.actualBpm }}</div>
+              </div>
+              <div>
+                <div class="text-stone-400">错误</div>
+                <div class="font-medium text-red-700">{{ r.errorCount }}</div>
+              </div>
+              <div>
+                <div class="text-stone-400">卡顿</div>
+                <div class="font-medium text-orange-700">{{ r.stutterCount }}</div>
+              </div>
+            </div>
+            <div v-if="r.note" class="mt-2 text-xs text-stone-600 bg-white rounded px-2 py-1.5 border border-stone-200">
+              {{ r.note }}
+            </div>
           </div>
         </div>
       </div>

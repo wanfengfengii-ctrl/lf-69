@@ -117,22 +117,34 @@ export function usePracticeTracker() {
   });
 
   const sectionStats = computed<SectionStats[]>(() => {
-    const bySection: Record<string, PracticeRecord[]> = {};
+    const bySectionFiltered: Record<string, PracticeRecord[]> = {};
+    const bySectionAll: Record<string, PracticeRecord[]> = {};
     const sectionNames: Record<string, string> = {};
+
+    for (const r of filteredRecords.value) {
+      const key = r.sectionId || '__no_section__';
+      if (!bySectionFiltered[key]) {
+        bySectionFiltered[key] = [];
+      }
+      bySectionFiltered[key].push(r);
+      sectionNames[key] = r.sectionName;
+    }
 
     for (const r of practiceRecords.value) {
       const key = r.sectionId || '__no_section__';
-      if (!bySection[key]) {
-        bySection[key] = [];
+      if (!bySectionAll[key]) {
+        bySectionAll[key] = [];
       }
-      bySection[key].push(r);
-      sectionNames[key] = r.sectionName;
+      bySectionAll[key].push(r);
+      if (!sectionNames[key]) {
+        sectionNames[key] = r.sectionName;
+      }
     }
 
     const now = Date.now();
     const DAY_MS = 24 * 60 * 60 * 1000;
 
-    return Object.entries(bySection).map(([key, records]) => {
+    return Object.entries(bySectionFiltered).map(([key, records]) => {
       const totalDuration = records.reduce((sum, r) => sum + r.actualDuration, 0);
       const avgErrorCount =
         records.reduce((sum, r) => sum + r.errorCount, 0) / records.length;
@@ -141,7 +153,8 @@ export function usePracticeTracker() {
       const avgRating =
         records.reduce((sum, r) => sum + ratingToNumber(r.selfRating), 0) / records.length;
 
-      const lastPracticeTime = records.reduce(
+      const allRecords = bySectionAll[key] || [];
+      const lastPracticeTime = allRecords.reduce(
         (max, r) => (r.endTime > max ? r.endTime : max),
         0,
       );
