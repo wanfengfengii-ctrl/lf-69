@@ -325,6 +325,121 @@ export interface ErrorHotspot {
   sectionName: string;
 }
 
+export type MaterialMode = 'F_zhengdiao' | 'F_mandiao' | 'C_ruidiao' | 'D_biyuediao' | 'E_gumian' | 'G_qingyuandiao' | 'B_yanmoudiao' | 'A_huangzhongdiao' | 'other';
+
+export type MaterialTechniqueCategory = 'right_hand_pluck' | 'right_hand_sweep' | 'right_hand_tremolo' | 'left_hand_slide' | 'left_hand_vibrato' | 'left_hand_press' | 'combined' | 'other';
+
+export type MaterialScene = 'opening' | 'transition' | 'climax' | 'ending' | 'ornament' | 'sustained' | 'practice_drill' | 'other';
+
+export interface MaterialFingering {
+  character: string;
+  stringIndex: number;
+  huiPosition: number;
+  rightHand: RightHandTechnique;
+  leftHand: LeftHandTechnique;
+  duration: number;
+  difficulty?: DifficultyTag;
+}
+
+export interface Material {
+  id: string;
+  name: string;
+  fingerings: MaterialFingering[];
+  mode: MaterialMode;
+  techniqueCategory: MaterialTechniqueCategory;
+  difficulty: DifficultyTag;
+  scene: MaterialScene;
+  isFavorite: boolean;
+  usageCount: number;
+  lastUsedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface MaterialFilter {
+  keyword: string;
+  mode: MaterialMode | null;
+  techniqueCategory: MaterialTechniqueCategory | null;
+  difficulty: DifficultyTag | null;
+  scene: MaterialScene | null;
+  isFavorite: boolean | null;
+}
+
+export interface MaterialCategoryStats {
+  byMode: Partial<Record<MaterialMode, number>>;
+  byTechniqueCategory: Partial<Record<MaterialTechniqueCategory, number>>;
+  byDifficulty: Partial<Record<DifficultyTag, number>>;
+  byScene: Partial<Record<MaterialScene, number>>;
+  total: number;
+  favorites: number;
+}
+
+export type PracticeGoal = 'technique_mastery' | 'speed_training' | 'accuracy' | 'endurance' | 'expression' | 'full_run';
+
+export const PRACTICE_GOALS: { value: PracticeGoal; label: string; description: string }[] = [
+  { value: 'technique_mastery', label: '技法掌握', description: '专注掌握特定指法技巧' },
+  { value: 'speed_training', label: '速度训练', description: '提升演奏速度与流畅度' },
+  { value: 'accuracy', label: '精准度', description: '提高指法准确性与音准' },
+  { value: 'endurance', label: '耐力练习', description: '增强持续演奏能力' },
+  { value: 'expression', label: '表现力', description: '提升音乐表现与情感传达' },
+  { value: 'full_run', label: '完整演奏', description: '从头到尾完整练习' },
+];
+
+export interface MaterialCategoryUsageStats {
+  byMode: Partial<Record<MaterialMode, number>>;
+  byTechniqueCategory: Partial<Record<MaterialTechniqueCategory, number>>;
+  byDifficulty: Partial<Record<DifficultyTag, number>>;
+  byScene: Partial<Record<MaterialScene, number>>;
+  totalUsage: number;
+}
+
+export interface PracticeSequenceItem {
+  material: Material;
+  order: number;
+  reason: string;
+  estimatedDuration: number;
+}
+
+export interface MaterialRecommendation {
+  material: Material;
+  score: number;
+  reason: string;
+}
+
+export const MATERIAL_MODES: { value: MaterialMode; label: string }[] = [
+  { value: 'F_zhengdiao', label: 'F调正调' },
+  { value: 'F_mandiao', label: 'F调慢调' },
+  { value: 'C_ruidiao', label: 'C调蕤宾调' },
+  { value: 'D_biyuediao', label: 'D调碧玉调' },
+  { value: 'E_gumian', label: 'E调姑悯' },
+  { value: 'G_qingyuandiao', label: 'G调清商调' },
+  { value: 'B_yanmoudiao', label: 'B调淹留调' },
+  { value: 'A_huangzhongdiao', label: 'A调黄钟调' },
+  { value: 'other', label: '其他调式' },
+];
+
+export const MATERIAL_TECHNIQUE_CATEGORIES: { value: MaterialTechniqueCategory; label: string }[] = [
+  { value: 'right_hand_pluck', label: '右手指拨' },
+  { value: 'right_hand_sweep', label: '右手扫拂' },
+  { value: 'right_hand_tremolo', label: '右手轮指' },
+  { value: 'left_hand_slide', label: '左手滑音' },
+  { value: 'left_hand_vibrato', label: '左手吟猱' },
+  { value: 'left_hand_press', label: '左手按弦' },
+  { value: 'combined', label: '双手组合' },
+  { value: 'other', label: '其他技法' },
+];
+
+export const MATERIAL_SCENES: { value: MaterialScene; label: string }[] = [
+  { value: 'opening', label: '起势' },
+  { value: 'transition', label: '过渡' },
+  { value: 'climax', label: '高潮' },
+  { value: 'ending', label: '收势' },
+  { value: 'ornament', label: '装饰' },
+  { value: 'sustained', label: '长音' },
+  { value: 'practice_drill', label: '练习片段' },
+  { value: 'other', label: '其他场景' },
+];
+
 export interface ReviewRecord {
   id: string;
   practiceRecordIds: string[];

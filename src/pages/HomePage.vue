@@ -9,12 +9,13 @@ import VersionManager from '@/components/VersionManager.vue';
 import PracticeTrackerPanel from '@/components/PracticeTrackerPanel.vue';
 import AnnotationPanel from '@/components/AnnotationPanel.vue';
 import ReviewPanel from '@/components/ReviewPanel.vue';
+import MaterialLibraryPanel from '@/components/MaterialLibraryPanel.vue';
 import { useFingeringStore } from '@/composables/useFingeringStore';
-import { Music2, Sparkles, Clock3, Sliders, MessageCircle, ClipboardList } from 'lucide-vue-next';
+import { Music2, Sparkles, Clock3, Sliders, MessageCircle, ClipboardList, Package } from 'lucide-vue-next';
 
 const { loadSampleData, fingerings } = useFingeringStore();
 
-type TabKey = 'editor' | 'tracker' | 'collab';
+type TabKey = 'editor' | 'tracker' | 'collab' | 'materials';
 const activeTab = ref<TabKey>('editor');
 
 onMounted(() => {
@@ -78,6 +79,18 @@ function handleFingeringAdded() {}
               <MessageCircle class="w-4 h-4" />
               协作批注
             </button>
+            <button
+              @click="activeTab = 'materials'"
+              class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5"
+              :class="
+                activeTab === 'materials'
+                  ? 'bg-white text-purple-700 shadow-sm'
+                  : 'text-stone-600 hover:text-stone-800'
+              "
+            >
+              <Package class="w-4 h-4" />
+              素材库
+            </button>
           </div>
           <VersionManager />
           <button
@@ -130,6 +143,18 @@ function handleFingeringAdded() {}
           <section class="col-span-12 lg:col-span-8 space-y-6">
             <ReviewPanel />
             <TimelineEditor />
+          </section>
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'materials'">
+        <div class="grid grid-cols-12 gap-6">
+          <aside class="col-span-12 lg:col-span-5 space-y-6">
+            <MaterialLibraryPanel />
+          </aside>
+          <section class="col-span-12 lg:col-span-7 space-y-6">
+            <TimelineEditor />
+            <FingeringList />
           </section>
         </div>
       </template>
